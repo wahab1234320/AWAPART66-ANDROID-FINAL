@@ -36,20 +36,88 @@ class MainActivity : ComponentActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var failed = false
     private val host = "awapart66.com"
+    private lateinit var chooser: LinearLayout
+    private lateinit var roleBar: LinearLayout
+    private var access = ""
+    private var shownNav = ""
     private val monitor = object : Runnable {
         override fun run() {
-            if (!isFinishing && !isDestroyed) {
-                val url = Uri.parse(webView.url ?: "")
-                if (!failed && url.scheme == "https" && url.host == host && url.path == "/customer.html") {
-                    webView.evaluateJavascript("(function(){return !!document.getElementById('customerContent') && !document.getElementById('customerContent').hidden && !document.body.classList.contains('locked');})()") { result ->
-                        val visible = if (!failed && result == "true" && Uri.parse(webView.url ?: "").path == "/customer.html") View.VISIBLE else View.GONE
-                        nav.visibility = visible
-                        header.visibility = visible
+            if (isFinishing || isDestroyed) return
+            val current = access
+            val uri = Uri.parse(webView.url ?: "")
+            val expected = if (current == "customer") "/customer.html" else "/portal.html"
+            if (!failed && current.isNotEmpty() && uri.scheme == "https" && uri.host == host && uri.path == expected) {
+                val js = if (current == "customer") "!!document.getElementById('customerContent') && !document.getElementById('customerContent').hidden && !document.body.classList.contains('locked')" else "!!document.getElementById('appPanel') && !document.getElementById('appPanel').classList.contains('hidden')"
+                webView.evaluateJavascript(js) { result ->
+                    if (access == current && !failed && webView.url == uri.toString()) {
+                        val visible = result == "true"
+                        if (visible) buildNav(current)
+                        nav.visibility = if (visible) View.VISIBLE else View.GONE
+                        header.visibility = if (visible) View.VISIBLE else View.GONE
                     }
-                } else { nav.visibility = View.GONE; header.visibility = View.GONE }
-                handler.postDelayed(this, 350)
-            }
+                }
+            } else { nav.visibility = View.GONE; header.visibility = View.GONE }
+            handler.postDelayed(this, 350)
         }
+    }
+    private fun buildNav(kind: String) {
+        if (shownNav == kind) return
+        shownNav = kind
+        nav.removeAllViews()
+        val labels = when(kind) {
+            "admin" -> listOf("Dasbor", "Unit", "Reservasi", "Keuangan", "Lainnya")
+            "owner" -> listOf("Ringkasan", "Unit", "Pendapatan", "Booking", "Akun")
+            else -> listOf("Beranda", "Cari unit", "Booking", "Akun")
+        }
+        labels.forEachIndexed { i, label ->
+            val tab = TextView(this).apply {
+                text = label; textSize = 12f; gravity = Gravity.CENTER; setTextColor(gold)
+                setOnClickListener {
+                    when(kind) {
+                        "admin" -> when(i) {
+                            0 -> jump("pageTitle")
+                            1 -> portalTab("units")
+                            2 -> portalTab("bookings")
+                            3 -> portalTab("finance")
+                            else -> jump("adminArea")
+                        }
+                        "owner" -> when(i) {
+                            0 -> jump("pageTitle")
+                            1 -> jump("myUnits")
+                            2 -> jump("ofSummary")
+                            3 -> webView.evaluateJavascript("document.querySelector('#ownerArea section:last-child')?.scrollIntoView()", null)
+                            else -> accountMenu()
+                        }
+                        else -> when(i) {
+                            0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
+                            1 -> jump("katalog")
+                            2 -> jump("accountDashboard")
+                            else -> accountMenu()
+                        }
+                    }
+                }
+            }
+            nav.addView(tab, LinearLayout.LayoutParams(0,dp(58),1f))
+        }
+    }
+    private fun portalTab(tab: String) {
+        val selector = org.json.JSONObject.quote("[data-tab='$tab']")
+        webView.evaluateJavascript("document.querySelector($selector)?.click();document.getElementById('tab-$tab')?.scrollIntoView()", null)
+    }
+    private fun accountMenu() {
+        AlertDialog.Builder(this).setTitle("Akun AWAPART 66").setItems(arrayOf("Ganti akses / keluar", "Batal")) { _, i -> if(i == 0) showChooser() }.show()
+    }
+    private fun showChooser() {
+        access = ""; shownNav = ""; failed = false
+        webView.stopLoading(); webView.loadUrl("about:blank"); webView.clearHistory()
+        webView.visibility = View.GONE; nav.visibility = View.GONE; header.visibility = View.GONE
+        progress.visibility = View.GONE; offline.visibility = View.GONE; roleBar.visibility = View.GONE
+        chooser.visibility = View.VISIBLE
+    }
+    private fun openAccess(kind: String) {
+        access = kind; shownNav = ""; chooser.visibility = View.GONE
+        webView.visibility = View.VISIBLE; roleBar.visibility = View.VISIBLE
+        webView.loadUrl(if(kind == "customer") appUrl else "https://awapart66.com/portal.html?v=251&access=$kind")
     }
     private var pendingSection: String? = null
     private val navy = Color.rgb(16,29,53)
@@ -68,7 +136,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val uploadRequest = 6102
-    private val appUrl = "https://awapart66.com/customer.html?v=250"
+    private val appUrl = "https://awapart66.com/customer.html?v=251"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,12 +153,17 @@ class MainActivity : ComponentActivity() {
                 super.onPageFinished(view, url)
                 if (Uri.parse(url).host != host || failed) return
                 progress.visibility = View.GONE
+                if (access == "admin" || access == "owner") {
+                    val chosen = org.json.JSONObject.quote(access)
+                    view.evaluateJavascript("""(function(){const r=document.getElementById('role');if(r){r.value=$chosen;r.disabled=true;}const h=document.querySelector('#loginPanel h2');if(h)h.textContent=$chosen==='admin'?'Masuk Admin':'Masuk Pemilik Properti';})()""", null)
+                }
                 if (!Uri.parse(url).path.orEmpty().contains("portal.html")) {
                     view.evaluateJavascript("""(function(){if(document.getElementById('aw241-style'))return;const s=document.createElement('style');s.id='aw241-style';s.textContent='@media(max-width:720px){body{overflow-x:hidden}img{max-width:100%} .hero h1{font-size:clamp(24px,6vw,32px)!important;line-height:1.15!important} .hero{min-height:0!important;padding:20px!important} .hero p{font-size:15px!important;line-height:1.5!important} input,select,textarea{max-width:100%;box-sizing:border-box}}';document.head.appendChild(s);})();""", null)
                     pendingSection?.let { pendingSection = null; activateSection(it) }
                 }
             }
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                if (access.isEmpty()) return
                 failed = false
                 nav.visibility = View.GONE
                 header.visibility = View.GONE
@@ -106,7 +179,8 @@ class MainActivity : ComponentActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
                 return if (uri.scheme == "https" && uri.host == host) {
-                    false
+                    val expected = if (access == "customer") "/customer.html" else "/portal.html"
+                    if (request.isForMainFrame && uri.path != expected) { Toast.makeText(this@MainActivity, "Gunakan pilihan akses.", Toast.LENGTH_SHORT).show(); true } else false
                 } else {
                     Toast.makeText(this@MainActivity, "Tautan eksternal dibuka melalui browser.", Toast.LENGTH_SHORT).show()
                     val intent = Intent(Intent.ACTION_VIEW, uri)
@@ -170,41 +244,39 @@ class MainActivity : ComponentActivity() {
             setOnClickListener { webView.reload() }
         }
         layout.addView(offline)
+        roleBar = LinearLayout(this).apply {
+            addView(TextView(this@MainActivity).apply {
+                text = "‹  Pilihan akses"; setTextColor(gold); textSize = 15f
+                setPadding(dp(16),dp(12),dp(16),dp(12)); setOnClickListener { accountMenu() }
+            })
+        }
+        layout.addView(roleBar)
+        chooser = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            setPadding(dp(22),dp(12),dp(22),dp(12))
+            fun line(value: String, size: Float, color: Int) = TextView(this@MainActivity).apply {
+                text = value; textSize = size; setTextColor(color); gravity = Gravity.CENTER
+                setPadding(0,dp(8),0,dp(8))
+            }
+            addView(line("A66",36f,gold)); addView(line("AWAPART 66",24f,Color.WHITE))
+            addView(line("PT AWAPART SUKSES BERSAMA",12f,gold))
+            addView(line("Pilih akses Anda",18f,Color.WHITE))
+            listOf(Triple("Customer","Cari unit dan reservasi","customer"),Triple("Pemilik Properti","Unit dan pendapatan","owner"),Triple("Admin & Management","Operasional dan keuangan","admin")).forEach { (title,desc,kind) ->
+                val card = line("$title  ›\n$desc",16f,Color.WHITE).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply { setColor(Color.rgb(36,52,77)); cornerRadius = dp(14).toFloat(); setStroke(dp(1),gold) }
+                    setPadding(dp(12),dp(15),dp(12),dp(15)); setOnClickListener { openAccess(kind) }
+                }
+                addView(card,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
+            }
+        }
+        layout.addView(chooser,LinearLayout.LayoutParams(-1,0,1f))
         layout.addView(webView, LinearLayout.LayoutParams(-1,0,1f))
         nav = LinearLayout(this).apply { setBackgroundColor(navy) }
-        val items = listOf("⌂\nBeranda", "⌕\nCari unit", "▣\nBooking", "●\nAkun")
-        items.forEachIndexed { index, label ->
-            val tab = TextView(this).apply {
-                text = label
-                textSize = 13f
-                gravity = Gravity.CENTER
-                setTextColor(gold)
-                isClickable = true
-                isFocusable = true
-                contentDescription = label.substringAfter("\n")
-                setOnClickListener {
-                    when(index) {
-                        0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
-                        1 -> jump("katalog")
-                        2 -> jump("accountDashboard")
-                        3 -> AlertDialog.Builder(this@MainActivity).setTitle("Akun AWAPART 66")
-                            .setItems(arrayOf("Customer", "Admin / Pemilik", "Kerja Sama")) { _, choice ->
-                                when(choice) {
-                                    0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
-                                    1 -> webView.loadUrl("https://awapart66.com/portal.html")
-                                    2 -> jump("kerjasama")
-                                }
-                            }.show()
-                    }
-                }
-            }
-            nav.addView(tab, LinearLayout.LayoutParams(0,dp(62),1f))
-        }
         nav.visibility = View.GONE
         layout.addView(nav)
         setContentView(layout)
         ViewCompat.requestApplyInsets(layout)
-        webView.loadUrl(appUrl)
+        showChooser()
         handler.post(monitor)
     }
 
@@ -243,6 +315,6 @@ class MainActivity : ComponentActivity() {
 
     @Deprecated("Use Android back dispatcher in a future update")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (access.isNotEmpty()) accountMenu() else super.onBackPressed()
     }
 }
