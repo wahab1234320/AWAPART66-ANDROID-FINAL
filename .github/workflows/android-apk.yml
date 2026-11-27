@@ -1,3 +1,4 @@
+
 name: AWAPART66 APK BUILD V3
 on:
   workflow_dispatch:
@@ -30,7 +31,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !inputs.release }}
         with:
-          name: AWAPART66-v250-PRODUCTION-TEST-APK
+          name: AWAPART66-v252-PRODUCTION-TEST-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Build and verify signed release
@@ -47,15 +48,19 @@ jobs:
           export AW66_KEYSTORE_PATH="$RUNNER_TEMP/aw66-release.jks"
           trap 'rm -f "$AW66_KEYSTORE_PATH"' EXIT
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$AW66_KEYSTORE_PATH"
-          gradle --no-daemon :app:assembleRelease --stacktrace
+          gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
           APK=app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
           SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
           test -n "$SIGNER"
           "$SIGNER" verify --verbose --print-certs "$APK"
       - uses: actions/upload-artifact@v4
         if: ${{ inputs.release }}
         with:
-          name: AWAPART66-v250-SIGNED-RELEASE
-          path: app/build/outputs/apk/release/app-release.apk
+          name: AWAPART66-v252-SIGNED-RELEASE
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
