@@ -14,17 +14,15 @@ android {
         applicationId 'id.co.awapart66.app'
         minSdk 23
         targetSdk 35
-        versionCode 24
-        versionName '2.4.0'
+        versionCode 25
+        versionName '2.4.1'
     }
 }
+
 android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-
-    kotlinOptions {
-        jvmTarget = '17'
-    }
+    kotlinOptions { jvmTarget = '17' }
 }
