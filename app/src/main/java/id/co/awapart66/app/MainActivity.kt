@@ -4,6 +4,12 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.webkit.WebResourceError
+import android.webkit.WebResourceResponse
+import android.widget.ProgressBar
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -23,6 +29,28 @@ import androidx.activity.ComponentActivity
 class MainActivity : ComponentActivity() {
     private var uploadCallback: ValueCallback<Array<Uri>>? = null
     private lateinit var webView: WebView
+    private lateinit var nav: LinearLayout
+    private lateinit var header: TextView
+    private lateinit var offline: TextView
+    private lateinit var progress: ProgressBar
+    private val handler = Handler(Looper.getMainLooper())
+    private var failed = false
+    private val host = "staging.awapart66.com"
+    private val monitor = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed) {
+                val url = Uri.parse(webView.url ?: "")
+                if (!failed && url.scheme == "https" && url.host == host && url.path == "/customer.html") {
+                    webView.evaluateJavascript("(function(){return !!document.getElementById('customerContent') && !document.getElementById('customerContent').hidden && !document.body.classList.contains('locked');})()") { result ->
+                        val visible = if (!failed && result == "true" && Uri.parse(webView.url ?: "").path == "/customer.html") View.VISIBLE else View.GONE
+                        nav.visibility = visible
+                        header.visibility = visible
+                    }
+                } else { nav.visibility = View.GONE; header.visibility = View.GONE }
+                handler.postDelayed(this, 350)
+            }
+        }
+    }
     private var pendingSection: String? = null
     private val navy = Color.rgb(16,29,53)
     private val gold = Color.rgb(198,154,66)
@@ -40,7 +68,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val uploadRequest = 6102
-    private val appUrl = "https://awapart66.com/customer.html"
+    private val appUrl = "https://staging.awapart66.com/customer.html?v=244"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,15 +83,29 @@ class MainActivity : ComponentActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                if (Uri.parse(url).host != "awapart66.com") return
+                if (Uri.parse(url).host != host || failed) return
+                progress.visibility = View.GONE
                 if (!Uri.parse(url).path.orEmpty().contains("portal.html")) {
                     view.evaluateJavascript("""(function(){if(document.getElementById('aw241-style'))return;const s=document.createElement('style');s.id='aw241-style';s.textContent='@media(max-width:720px){body{overflow-x:hidden}img{max-width:100%} .hero h1{font-size:clamp(24px,6vw,32px)!important;line-height:1.15!important} .hero{min-height:0!important;padding:20px!important} .hero p{font-size:15px!important;line-height:1.5!important} input,select,textarea{max-width:100%;box-sizing:border-box}}';document.head.appendChild(s);})();""", null)
                     pendingSection?.let { pendingSection = null; activateSection(it) }
                 }
             }
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                failed = false
+                nav.visibility = View.GONE
+                header.visibility = View.GONE
+                offline.visibility = View.GONE
+                progress.visibility = View.VISIBLE
+            }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) showOffline()
+            }
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
+                if (request.isForMainFrame && errorResponse.statusCode >= 500) showOffline()
+            }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                return if (uri.scheme == "https" && uri.host == "awapart66.com") {
+                return if (uri.scheme == "https" && uri.host == host) {
                     false
                 } else {
                     Toast.makeText(this@MainActivity, "Tautan eksternal dibuka melalui browser.", Toast.LENGTH_SHORT).show()
@@ -109,7 +151,7 @@ class MainActivity : ComponentActivity() {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
-        val header = TextView(this).apply {
+        header = TextView(this).apply {
             text = "AWAPART 66  •  APARTMENT RENTAL"
             setTextColor(gold)
             textSize = 13f
@@ -118,8 +160,18 @@ class MainActivity : ComponentActivity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
         }
         layout.addView(header, LinearLayout.LayoutParams(-1,dp(44)))
+        header.visibility = View.GONE
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true }
+        layout.addView(progress, LinearLayout.LayoutParams(-1,dp(3)))
+        offline = TextView(this).apply {
+            text = "Koneksi bermasalah. Ketuk untuk mencoba lagi."
+            setTextColor(gold); gravity = Gravity.CENTER; setPadding(dp(20),dp(24),dp(20),dp(24))
+            visibility = View.GONE
+            setOnClickListener { webView.reload() }
+        }
+        layout.addView(offline)
         layout.addView(webView, LinearLayout.LayoutParams(-1,0,1f))
-        val nav = LinearLayout(this).apply { setBackgroundColor(navy) }
+        nav = LinearLayout(this).apply { setBackgroundColor(navy) }
         val items = listOf("⌂\nBeranda", "⌕\nCari unit", "▣\nBooking", "●\nAkun")
         items.forEachIndexed { index, label ->
             val tab = TextView(this).apply {
@@ -132,15 +184,15 @@ class MainActivity : ComponentActivity() {
                 contentDescription = label.substringAfter("\n")
                 setOnClickListener {
                     when(index) {
-                        0 -> webView.loadUrl(appUrl)
-                        1 -> section("Cari Apartemen")
-                        2 -> section("Booking Saya")
+                        0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
+                        1 -> jump("katalog")
+                        2 -> jump("accountDashboard")
                         3 -> AlertDialog.Builder(this@MainActivity).setTitle("Akun AWAPART 66")
                             .setItems(arrayOf("Customer", "Admin / Pemilik", "Kerja Sama")) { _, choice ->
                                 when(choice) {
-                                    0 -> webView.loadUrl(appUrl)
-                                    1 -> webView.loadUrl("https://awapart66.com/portal.html")
-                                    2 -> section("Kerja Sama")
+                                    0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
+                                    1 -> webView.loadUrl("https://staging.awapart66.com/portal.html")
+                                    2 -> jump("kerjasama")
                                 }
                             }.show()
                     }
@@ -148,12 +200,32 @@ class MainActivity : ComponentActivity() {
             }
             nav.addView(tab, LinearLayout.LayoutParams(0,dp(62),1f))
         }
+        nav.visibility = View.GONE
         layout.addView(nav)
         setContentView(layout)
         ViewCompat.requestApplyInsets(layout)
-        if (savedInstanceState == null) webView.loadUrl(appUrl) else webView.restoreState(savedInstanceState)
+        webView.loadUrl(appUrl)
+        handler.post(monitor)
     }
 
+    private fun jump(id: String) {
+        val quoted = org.json.JSONObject.quote(id)
+        webView.evaluateJavascript("document.getElementById($quoted)?.scrollIntoView({behavior:'smooth'})", null)
+    }
+    private fun showOffline() {
+        failed = true
+        nav.visibility = View.GONE
+        header.visibility = View.GONE
+        progress.visibility = View.GONE
+        offline.visibility = View.VISIBLE
+    }
+    override fun onDestroy() {
+        handler.removeCallbacks(monitor)
+        uploadCallback?.onReceiveValue(null)
+        uploadCallback = null
+        webView.destroy()
+        super.onDestroy()
+    }
     override fun onSaveInstanceState(outState: Bundle) {
         webView.saveState(outState)
         super.onSaveInstanceState(outState)
