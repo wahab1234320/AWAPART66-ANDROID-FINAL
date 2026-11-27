@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var progress: ProgressBar
     private val handler = Handler(Looper.getMainLooper())
     private var failed = false
-    private val host = "staging.awapart66.com"
+    private val host = "awapart66.com"
     private val monitor = object : Runnable {
         override fun run() {
             if (!isFinishing && !isDestroyed) {
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val uploadRequest = 6102
-    private val appUrl = "https://staging.awapart66.com/customer.html?v=244"
+    private val appUrl = "https://awapart66.com/customer.html?v=250"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -191,7 +191,7 @@ class MainActivity : ComponentActivity() {
                             .setItems(arrayOf("Customer", "Admin / Pemilik", "Kerja Sama")) { _, choice ->
                                 when(choice) {
                                     0 -> webView.evaluateJavascript("window.scrollTo(0,0)", null)
-                                    1 -> webView.loadUrl("https://staging.awapart66.com/portal.html")
+                                    1 -> webView.loadUrl("https://awapart66.com/portal.html")
                                     2 -> jump("kerjasama")
                                 }
                             }.show()
