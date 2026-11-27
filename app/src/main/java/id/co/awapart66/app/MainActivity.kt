@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var progress: ProgressBar
     private val handler = Handler(Looper.getMainLooper())
     private var failed = false
-    private val host = "awapart66.com"
+    private val host = "staging.awapart66.com"
     private lateinit var chooser: LinearLayout
     private lateinit var roleBar: LinearLayout
     private var access = ""
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                             1 -> portalTab("units")
                             2 -> portalTab("bookings")
                             3 -> portalTab("finance")
-                            else -> jump("adminArea")
+                            else -> jump("accountManagement")
                         }
                         "owner" -> when(i) {
                             0 -> jump("pageTitle")
@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
         AlertDialog.Builder(this).setTitle("Akun AWAPART 66").setItems(arrayOf("Ganti akses / keluar", "Informasi & bantuan", "Batal")) { _, i -> if(i == 0) showChooser() else if(i == 1) showInfo() }.show()
     }
     private fun showInfo() {
-        AlertDialog.Builder(this).setTitle("AWAPART 66 • 2.5.2")
+        AlertDialog.Builder(this).setTitle("AWAPART 66 • 2.5.4 STAGING")
             .setMessage("PT AWAPART SUKSES BERSAMA\nBantuan akun dan pemulihan password: awapartsukses@gmail.com\nJangan bagikan password atau OTP.\nKeluar menghapus sesi lokal perangkat; pencabutan token server belum tersedia.")
             .setPositiveButton("Tutup", null).show()
     }
@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
     private fun openAccess(kind: String) {
         access = kind; shownNav = ""; chooser.visibility = View.GONE
         webView.visibility = View.VISIBLE; roleBar.visibility = View.VISIBLE
-        webView.loadUrl(if(kind == "customer") appUrl else "https://awapart66.com/portal.html?v=252&access=$kind")
+        webView.loadUrl(if(kind == "customer") appUrl else "https://staging.awapart66.com/portal.html?v=2541&access=$kind")
     }
     private var pendingSection: String? = null
     private val navy = Color.rgb(16,29,53)
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val uploadRequest = 6102
-    private val appUrl = "https://awapart66.com/customer.html?v=252"
+    private val appUrl = "https://staging.awapart66.com/customer.html?v=2541"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -202,7 +202,7 @@ class MainActivity : ComponentActivity() {
                 val uri = request.url
                 return if (uri.scheme == "https" && uri.host == host) {
                     val expected = if (access == "customer") "/customer.html" else "/portal.html"
-                    if (request.isForMainFrame && uri.path != expected) { Toast.makeText(this@MainActivity, "Gunakan pilihan akses.", Toast.LENGTH_SHORT).show(); true } else false
+                    if (request.isForMainFrame && uri.path !in setOf(expected, "/owner-apply.html", "/recovery.html", "/account-email.html", "/customer.html", "/portal.html")) { Toast.makeText(this@MainActivity, "Gunakan pilihan akses.", Toast.LENGTH_SHORT).show(); true } else false
                 } else {
                     if (!request.isForMainFrame || !request.hasGesture()) return true
                     Toast.makeText(this@MainActivity, "Tautan eksternal dibuka melalui browser.", Toast.LENGTH_SHORT).show()
@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 addView(card,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
             }
         }
-        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.5.2"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
+        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.5.4 STAGING"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
         layout.addView(chooser,LinearLayout.LayoutParams(-1,0,1f))
         layout.addView(webView, LinearLayout.LayoutParams(-1,0,1f))
         nav = LinearLayout(this).apply { setBackgroundColor(navy) }
