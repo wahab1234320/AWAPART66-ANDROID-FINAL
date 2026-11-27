@@ -1,38 +1,66 @@
-name: Build AWAPART 66 APK
+
+name: AWAPART66 APK BUILD V3
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: AWAPART66 BUILD V3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-      - name: Set up Java
+
+      - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Gradle
+
+      - name: Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
+
+      - name: V3 Check source and SDK
+        shell: bash
+        run: |
+          set -e
+          test -f settings.gradle
+          test -f build.gradle
+          test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          test -f "$SDK/platforms/android-35/android.jar"
+
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "sdk.dir=$SDK" > local.properties
+
+          java -version
+          gradle --version
+
+      - name: V3 Compile APK
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: V3 Verify APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: V3 Download APK
         uses: actions/upload-artifact@v4
         with:
-          name: AWAPART66-v240-test-apk
+          name: AWAPART66-v240-APK-V3
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
