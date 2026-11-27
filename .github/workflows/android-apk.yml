@@ -19,7 +19,6 @@ jobs:
       - name: Verify Application Version
         run: |
           grep -E "versionName[[:space:]]+['\"]2\.5\.4['\"]" app/build.gradle
-          echo "AWAPART66 VERSION 2.5.4 VERIFIED"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -34,12 +33,17 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          sdkmanager "platforms;android-35"
-          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$SDK/platforms/android-35" ]; then
+            MANAGER=$(find "$SDK/cmdline-tools" -type f -name sdkmanager | head -n 1)
+            test -n "$MANAGER"
+            "$MANAGER" "platforms;android-35"
+          fi
+          test -d "$SDK/platforms/android-35"
+          printf 'sdk.dir=%s\n' "$SDK" > local.properties
 
       - name: Build APK V254
-        run: |
-          gradle --no-daemon :app:assembleDebug --stacktrace
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Prepare APK V254
         run: |
