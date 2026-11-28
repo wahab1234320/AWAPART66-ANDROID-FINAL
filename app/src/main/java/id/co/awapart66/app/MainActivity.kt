@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 addView(card,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
             }
         }
-        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.5.9"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
+        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.6.4"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
         layout.addView(chooser,LinearLayout.LayoutParams(-1,0,1f))
         layout.addView(webView, LinearLayout.LayoutParams(-1,0,1f))
         nav = LinearLayout(this).apply { setBackgroundColor(navy) }
