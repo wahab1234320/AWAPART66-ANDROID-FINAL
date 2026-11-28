@@ -1,5 +1,5 @@
 
-name: AWAPART66 v264 FINAL BUILD
+name: AWAPART66 v266 FINAL BUILD
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       release:
         description: Build signed APK and AAB
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -16,6 +16,10 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: android
 
     steps:
       - name: Checkout source
@@ -27,29 +31,30 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Check Android SDK
-        run: |
-          test -d "$ANDROID_HOME"
-          echo "Android SDK ready"
-          ls "$ANDROID_HOME/platforms"
-          ls "$ANDROID_HOME/build-tools"
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
+      - name: Validate version and SDK
+        run: |
+          set -e
+          grep -F "versionName '2.6.6'" app/build.gradle
+          grep -E 'versionCode[[:space:]]+47$' app/build.gradle
+          test -d "$ANDROID_HOME/platforms/android-35"
+          echo "AWAPART66 V266 SOURCE OK"
+
       - name: Build test APK
         if: ${{ !inputs.release }}
         run: |
-          gradle --no-daemon :app:assembleDebug --stacktrace
+          gradle --no-daemon clean :app:assembleDebug --stacktrace
 
       - name: Upload test APK
         if: ${{ !inputs.release }}
         uses: actions/upload-artifact@v4
         with:
-          name: AWAPART66-v264-PRODUCTION-TEST-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: AWAPART66-v266-TEST-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Build signed APK and AAB
@@ -62,20 +67,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          : "${KEYSTORE_B64:?Missing keystore secret}"
+          : "${KEYSTORE_B64:?Missing keystore}"
           : "${AW66_STORE_PASSWORD:?Missing store password}"
           : "${AW66_KEY_ALIAS:?Missing key alias}"
           : "${AW66_KEY_PASSWORD:?Missing key password}"
 
           umask 077
-
           export AW66_KEYSTORE_PATH="$RUNNER_TEMP/aw66-release.jks"
 
           trap 'rm -f "$AW66_KEYSTORE_PATH"' EXIT
 
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$AW66_KEYSTORE_PATH"
 
-          gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
+          gradle --no-daemon clean :app:assembleRelease :app:bundleRelease --stacktrace
 
           APK=app/build/outputs/apk/release/app-release.apk
           AAB=app/build/outputs/bundle/release/app-release.aab
@@ -88,18 +92,17 @@ jobs:
           SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
 
           test -n "$SIGNER"
+          "$SIGNER" verify --verbose "$APK"
 
-          "$SIGNER" verify --verbose --print-certs "$APK"
-
-          echo "AWAPART66 release build completed"
+          echo "AWAPART66 V266 FINAL BUILD SUCCESS"
 
       - name: Upload final APK and AAB
         if: ${{ inputs.release }}
         uses: actions/upload-artifact@v4
         with:
-          name: AWAPART66-v264-SIGNED-RELEASE
+          name: AWAPART66-v266-SIGNED-FINAL
           path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
