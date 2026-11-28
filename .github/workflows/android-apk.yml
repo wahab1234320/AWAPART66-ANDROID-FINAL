@@ -15,9 +15,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -25,8 +27,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Check Android SDK
+        run: |
+          test -d "$ANDROID_HOME"
+          echo "Android SDK ready"
+          ls "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/build-tools"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -35,7 +41,8 @@ jobs:
 
       - name: Build test APK
         if: ${{ !inputs.release }}
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
+        run: |
+          gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Upload test APK
         if: ${{ !inputs.release }}
@@ -45,7 +52,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Build and verify signed release
+      - name: Build signed APK and AAB
         if: ${{ inputs.release }}
         env:
           KEYSTORE_B64: ${{ secrets.AW66_KEYSTORE_B64 }}
@@ -61,7 +68,9 @@ jobs:
           : "${AW66_KEY_PASSWORD:?Missing key password}"
 
           umask 077
+
           export AW66_KEYSTORE_PATH="$RUNNER_TEMP/aw66-release.jks"
+
           trap 'rm -f "$AW66_KEYSTORE_PATH"' EXIT
 
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$AW66_KEYSTORE_PATH"
@@ -79,7 +88,10 @@ jobs:
           SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
 
           test -n "$SIGNER"
+
           "$SIGNER" verify --verbose --print-certs "$APK"
+
+          echo "AWAPART66 release build completed"
 
       - name: Upload final APK and AAB
         if: ${{ inputs.release }}
@@ -90,3 +102,4 @@ jobs:
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+          retention-days: 30
