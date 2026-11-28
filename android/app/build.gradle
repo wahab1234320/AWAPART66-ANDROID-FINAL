@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+dependencies {
+    implementation 'androidx.activity:activity-ktx:1.10.0'
+}
+
+android {
+    namespace 'id.co.awapart66.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'id.co.awapart66.app'
+        minSdk 23
+        targetSdk 35
+        versionCode 47
+        versionName '2.6.6'
+    }
+}
+
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+// Release signing is enabled only when all four environment variables exist.
+def signingVars = ['AW66_KEYSTORE_PATH','AW66_STORE_PASSWORD','AW66_KEY_ALIAS','AW66_KEY_PASSWORD']
+if (signingVars.every { System.getenv(it) }) {
+    android {
+        signingConfigs {
+            release {
+                storeFile file(System.getenv('AW66_KEYSTORE_PATH'))
+                storePassword System.getenv('AW66_STORE_PASSWORD')
+                keyAlias System.getenv('AW66_KEY_ALIAS')
+                keyPassword System.getenv('AW66_KEY_PASSWORD')
+            }
+        }
+        buildTypes { release { signingConfig signingConfigs.release } }
+    }
+}
