@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
         shownNav = kind
         nav.removeAllViews()
         val labels = when(kind) {
-            "admin" -> listOf("Dasbor", "Unit", "Reservasi", "Keuangan", "Lainnya")
+            "admin", "operational", "super" -> listOf("Dasbor", "Unit", "Reservasi", "Keuangan", "Lainnya")
             "owner" -> listOf("Ringkasan", "Unit", "Pendapatan", "Booking", "Akun")
             else -> listOf("Beranda", "Cari unit", "Booking", "Akun")
         }
@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                 text = label; textSize = 12f; gravity = Gravity.CENTER; setTextColor(gold)
                 setOnClickListener {
                     when(kind) {
-                        "admin" -> when(i) {
+                        "admin", "operational", "super" -> when(i) {
                             0 -> jump("pageTitle")
                             1 -> portalTab("units")
                             2 -> portalTab("bookings")
@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
         AlertDialog.Builder(this).setTitle("Akun AWAPART 66").setItems(arrayOf("Ganti akses / keluar", "Informasi & bantuan", "Batal")) { _, i -> if(i == 0) showChooser() else if(i == 1) showInfo() }.show()
     }
     private fun showInfo() {
-        AlertDialog.Builder(this).setTitle("AWAPART 66 • 2.5.2")
+        AlertDialog.Builder(this).setTitle("AWAPART 66 • 2.5.9")
             .setMessage("PT AWAPART SUKSES BERSAMA\nBantuan akun dan pemulihan password: awapartsukses@gmail.com\nJangan bagikan password atau OTP.\nKeluar menghapus sesi lokal perangkat; pencabutan token server belum tersedia.")
             .setPositiveButton("Tutup", null).show()
     }
@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
     private fun openAccess(kind: String) {
         access = kind; shownNav = ""; chooser.visibility = View.GONE
         webView.visibility = View.VISIBLE; roleBar.visibility = View.VISIBLE
-        webView.loadUrl(if(kind == "customer") appUrl else "https://awapart66.com/portal.html?v=252&access=$kind")
+        webView.loadUrl(if(kind == "customer") appUrl else "https://awapart66.com/portal.html?v=264&access=$kind")
     }
     private var pendingSection: String? = null
     private val navy = Color.rgb(16,29,53)
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val uploadRequest = 6102
-    private val appUrl = "https://awapart66.com/customer.html?v=252"
+    private val appUrl = "https://awapart66.com/customer.html?v=264"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -171,8 +171,8 @@ class MainActivity : ComponentActivity() {
                 super.onPageFinished(view, url)
                 if (Uri.parse(url).host != host || failed) return
                 progress.visibility = View.GONE
-                if (access == "admin" || access == "owner") {
-                    val chosen = org.json.JSONObject.quote(access)
+                if (access == "admin" || access == "operational" || access == "super" || access == "owner") {
+                    val chosen = org.json.JSONObject.quote(if(access == "owner") "owner" else "admin")
                     view.evaluateJavascript("""(function(){const r=document.getElementById('role');if(r){r.value=$chosen;r.disabled=true;}const h=document.querySelector('#loginPanel h2');if(h)h.textContent=$chosen==='admin'?'Masuk Admin':'Masuk Pemilik Properti';})()""", null)
                 }
                 if (!Uri.parse(url).path.orEmpty().contains("portal.html")) {
@@ -284,7 +284,7 @@ class MainActivity : ComponentActivity() {
             addView(line("A66",36f,gold)); addView(line("AWAPART 66",24f,Color.WHITE))
             addView(line("PT AWAPART SUKSES BERSAMA",12f,gold))
             addView(line("Pilih akses Anda",18f,Color.WHITE))
-            listOf(Triple("Customer","Cari unit dan reservasi","customer"),Triple("Pemilik Properti","Unit dan pendapatan","owner"),Triple("Admin & Management","Operasional dan keuangan","admin")).forEach { (title,desc,kind) ->
+            listOf(Triple("Customer","Cari unit dan reservasi","customer"),Triple("Pemilik Properti","Unit dan pendapatan","owner"),Triple("Admin Operasional","Operasional sesuai izin","operational"),Triple("Super Admin","Pusat kendali perusahaan","super")).forEach { (title,desc,kind) ->
                 val card = line("$title  ›\n$desc",16f,Color.WHITE).apply {
                     background = android.graphics.drawable.GradientDrawable().apply { setColor(Color.rgb(36,52,77)); cornerRadius = dp(14).toFloat(); setStroke(dp(1),gold) }
                     setPadding(dp(12),dp(15),dp(12),dp(15)); setOnClickListener { openAccess(kind) }
@@ -292,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 addView(card,LinearLayout.LayoutParams(-1,-2).apply { bottomMargin=dp(10) })
             }
         }
-        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.5.2"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
+        chooser.addView(TextView(this).apply { text = "Informasi & bantuan • v2.5.9"; setTextColor(gold); gravity = Gravity.CENTER; setPadding(0,dp(12),0,dp(12)); setOnClickListener { showInfo() } })
         layout.addView(chooser,LinearLayout.LayoutParams(-1,0,1f))
         layout.addView(webView, LinearLayout.LayoutParams(-1,0,1f))
         nav = LinearLayout(this).apply { setBackgroundColor(navy) }
